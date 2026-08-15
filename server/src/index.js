@@ -24,7 +24,11 @@ import siteRoutes from './routes/site.js';
 // Standart maxfiy kalit bilan ishlab chiqarishga chiqmaslik kerak
 // ---------------------------------------------------------------
 const SECRET = process.env.JWT_SECRET || '';
-const WEAK = ['', 'grizzly-super-secret-change-me', 'secret', 'changeme'];
+const WEAK = [
+  '', 'secret', 'changeme', 'change-me',
+  'grizzly-super-secret-change-me',
+  'bu-yerga-oz-kalitingizni-yozing',
+];
 
 if (WEAK.includes(SECRET) || SECRET.length < 16) {
   console.error('\n  XATO: JWT_SECRET o\'rnatilmagan yoki juda qisqa.');

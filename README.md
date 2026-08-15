@@ -32,8 +32,10 @@ npm run dev
 
 | Fayl | Nima uchun |
 |------|-----------|
+| [BUYRUQLAR_grizzlygym.md](./BUYRUQLAR_grizzlygym.md) | Sizning serveringiz uchun tayyor buyruqlar |
+| [GIT_BILAN_ORNATISH.md](./GIT_BILAN_ORNATISH.md) | GitHub orqali o'rnatish va yangilash |
 | [ISHLAB_CHIQARISH.md](./ISHLAB_CHIQARISH.md) | Xavfsizlik, parollar, zaxira nusxa |
-| [VPS_ORNATISH.md](./VPS_ORNATISH.md) | Internetga chiqarish — bosqichma-bosqich |
+| [VPS_ORNATISH.md](./VPS_ORNATISH.md) | Umumiy VPS qo'llanmasi |
 
 ---
 
