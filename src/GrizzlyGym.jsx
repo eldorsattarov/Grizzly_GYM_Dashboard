@@ -77,9 +77,17 @@ function PayBar({ paid, total }) {
 // ============================================
 // Server manzili. Vite loyihasida index.html ichida yoki main.jsx da
 // window.__GRIZZLY_API__ = 'https://...' deb o'zgartirish mumkin.
-const API_BASE =
-  (typeof window !== 'undefined' && window.__GRIZZLY_API__) ||
-  'http://localhost:4000/api';
+// Server manzili uch bosqichda aniqlanadi:
+//   1. index.html da window.__GRIZZLY_API__ yozilgan bo'lsa — o'sha
+//   2. Dasturchi rejimida (localhost) — http://localhost:4000/api
+//   3. Serverda — shu domenning o'zi (/api), chunki server saytni ham beradi
+const API_BASE = (() => {
+  if (typeof window === 'undefined') return '/api';
+  if (window.__GRIZZLY_API__) return window.__GRIZZLY_API__;
+
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
+  return local ? 'http://localhost:4000/api' : '/api';
+})();
 
 const TOKEN_KEY = 'grizzly_token';
 
@@ -293,7 +301,9 @@ const translations = {
     caption: 'Izoh',
     pickImage: 'Rasm tanlash',
     removeImage: "Rasmni o'chirish",
-    imageHint: 'Kvadrat, 1 Mb gacha · 24 tagacha rasm',
+    imageHint: "Kvadrat rasm tavsiya etiladi · 24 tagacha",
+    imageTooBig: "Rasm juda katta — boshqasini tanlang",
+    imageError: "Rasmni o'qib bo'lmadi",
     addImage: "Rasm qo'shish",
     replaceImage: 'Almashtirish',
     removeSlot: "Katakni o'chirish",
@@ -314,6 +324,7 @@ const translations = {
     installHint: "Telefon ekraniga ikonka qo'shiladi",
     installIos: "Safari'da: Ulashish → Bosh ekranga qo'shish",
     saveSite: "Saytni yangilash",
+    unsaved: "Saqlanmagan o'zgarishlar bor — tugmani bosing",
     siteSaved: 'Sayt yangilandi!',
     openSite: 'Saytni ochish',
     wrongCredentials: "Login yoki parol noto'g'ri",
@@ -573,7 +584,9 @@ const translations = {
     caption: 'Подпись',
     pickImage: 'Выбрать фото',
     removeImage: 'Удалить фото',
-    imageHint: 'Квадрат, до 1 Мб · до 24 фото',
+    imageHint: 'Рекомендуется квадратное фото · до 24 шт',
+    imageTooBig: 'Фото слишком большое — выберите другое',
+    imageError: 'Не удалось прочитать фото',
     addImage: 'Добавить фото',
     replaceImage: 'Заменить',
     removeSlot: 'Удалить ячейку',
@@ -594,6 +607,7 @@ const translations = {
     installHint: 'На экране появится иконка',
     installIos: 'В Safari: Поделиться → На экран «Домой»',
     saveSite: 'Обновить сайт',
+    unsaved: 'Есть несохранённые изменения — нажмите кнопку',
     siteSaved: 'Сайт обновлён!',
     openSite: 'Открыть сайт',
     wrongCredentials: 'Неверный логин или пароль',
@@ -853,7 +867,9 @@ const translations = {
     caption: 'Caption',
     pickImage: 'Choose photo',
     removeImage: 'Remove photo',
-    imageHint: 'Square, up to 1 MB · up to 24 photos',
+    imageHint: 'Square photo recommended · up to 24',
+    imageTooBig: 'Photo is too large — pick another',
+    imageError: 'Could not read the photo',
     addImage: 'Add photo',
     replaceImage: 'Replace',
     removeSlot: 'Remove slot',
@@ -874,6 +890,7 @@ const translations = {
     installHint: 'An icon will appear on your screen',
     installIos: 'In Safari: Share → Add to Home Screen',
     saveSite: 'Update site',
+    unsaved: 'Unsaved changes — press the button',
     siteSaved: 'Site updated!',
     openSite: 'Open site',
     wrongCredentials: 'Wrong login or password',
@@ -2669,64 +2686,115 @@ export default function GrizzlyGymSoftData() {
   // =========================================================
   // SAYT SOZLAMALARI
   // =========================================================
-  const patchSite = (patch) => setSite((s0) => ({ ...s0, ...patch }));
+  const [siteDirty, setSiteDirty] = useState(false);
 
-  const patchGallery = (i, patch) =>
+  // Har qanday o'zgarish "saqlanmagan" deb belgilanadi
+  const editSite = (fn) => (...args) => { setSiteDirty(true); return fn(...args); };
+
+  const patchSite = editSite((patch) =>
+    setSite((s0) => ({ ...s0, ...patch })));
+
+  const patchGallery = editSite((i, patch) =>
     setSite((s0) => ({
       ...s0,
       gallery: s0.gallery.map((g, k) => (k === i ? { ...g, ...patch } : g)),
-    }));
+    })));
 
-  const patchHours = (i, patch) =>
+  const patchHours = editSite((i, patch) =>
     setSite((s0) => ({
       ...s0,
       hours: s0.hours.map((h, k) => (k === i ? { ...h, ...patch } : h)),
-    }));
+    })));
 
-  const patchFaq = (i, patch) =>
-    setSite((s0) => ({ ...s0, faq: s0.faq.map((f, k) => (k === i ? { ...f, ...patch } : f)) }));
+  const patchFaq = editSite((i, patch) =>
+    setSite((s0) => ({
+      ...s0,
+      faq: s0.faq.map((f, k) => (k === i ? { ...f, ...patch } : f)),
+    })));
 
-  const addFaqRow = () =>
-    setSite((s0) => ({ ...s0, faq: [...(s0.faq || []), { q: '', a: '' }] }));
+  const addFaqRow = editSite(() =>
+    setSite((s0) => ({ ...s0, faq: [...(s0.faq || []), { q: '', a: '' }] })));
 
-  const removeFaqRow = (i) =>
-    setSite((s0) => ({ ...s0, faq: s0.faq.filter((_, k) => k !== i) }));
+  const removeFaqRow = editSite((i) =>
+    setSite((s0) => ({ ...s0, faq: s0.faq.filter((_, k) => k !== i) })));
 
-  const addHourRow = () =>
-    setSite((s0) => ({ ...s0, hours: [...s0.hours, { day: '', time: '' }] }));
+  const addHourRow = editSite(() =>
+    setSite((s0) => ({ ...s0, hours: [...s0.hours, { day: '', time: '' }] })));
 
-  const removeHourRow = (i) =>
-    setSite((s0) => ({ ...s0, hours: s0.hours.filter((_, k) => k !== i) }));
+  const removeHourRow = editSite((i) =>
+    setSite((s0) => ({ ...s0, hours: s0.hours.filter((_, k) => k !== i) })));
 
-  const addGallerySlot = () =>
-    setSite((s0) => ({ ...s0, gallery: [...s0.gallery, { caption: '', src: '' }] }));
+  const addGallerySlot = editSite(() =>
+    setSite((s0) => ({ ...s0, gallery: [...s0.gallery, { caption: '', src: '' }] })));
 
-  const removeGallerySlot = (i) =>
-    setSite((s0) => ({ ...s0, gallery: s0.gallery.filter((_, k) => k !== i) }));
+  const removeGallerySlot = editSite((i) =>
+    setSite((s0) => ({ ...s0, gallery: s0.gallery.filter((_, k) => k !== i) })));
 
-  // Rasmni base64 ga o'girib saqlaymiz
-  const pickGalleryImage = (i, file) => {
-    if (!file) return;
-    if (file.size > 1024 * 1024) { toast.err(t.imageHint); return; }
-    const reader = new FileReader();
-    reader.onload = () => patchGallery(i, { src: reader.result });
-    reader.readAsDataURL(file);
-  };
-
-  const moveGallery = (i, dir) =>
+  const moveGallery = editSite((i, dir) =>
     setSite((s0) => {
       const j = i + dir;
       if (j < 0 || j >= s0.gallery.length) return s0;
       const g = [...s0.gallery];
       [g[i], g[j]] = [g[j], g[i]];
       return { ...s0, gallery: g };
+    }));
+
+  // ---------------------------------------------------------
+  // Rasmni yuborishdan oldin kichraytiramiz.
+  // Telefon kamerasi 3-5 Mb rasm beradi — uni to'g'ridan-to'g'ri
+  // saqlash bazani shishiradi va saytni sekinlashtiradi.
+  // 1400px va JPEG sifati 0.82 — ko'zga bilinmaydi, hajm 10 barobar kichrayadi.
+  // ---------------------------------------------------------
+  const shrinkImage = (file, maxSide = 1400, quality = 0.82) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('READ'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('DECODE'));
+        img.onload = () => {
+          let { width: w, height: h } = img;
+          if (w > maxSide || h > maxSide) {
+            const k = maxSide / Math.max(w, h);
+            w = Math.round(w * k);
+            h = Math.round(h * k);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
     });
+
+  const pickGalleryImage = async (i, file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.err(t.imageHint); return; }
+
+    try {
+      let data = await shrinkImage(file);
+
+      // Baribir katta bo'lsa yana bir bor siqamiz
+      if (data.length > 900000) data = await shrinkImage(file, 1000, 0.72);
+      if (data.length > 900000) data = await shrinkImage(file, 800, 0.6);
+
+      if (data.length > 900000) { toast.err(t.imageTooBig); return; }
+      patchGallery(i, { src: data });
+    } catch {
+      toast.err(t.imageError);
+    }
+  };
 
   const saveSite = async () => {
     setSiteSaving(true);
     try {
       const saved = await api.site.save(site);
       setSite(saved);
+      setSiteDirty(false);
       toast.ok(t.siteSaved);
     } catch (err) { handleApiError(err); }
     finally { setSiteSaving(false); }
@@ -5048,6 +5116,9 @@ export default function GrizzlyGymSoftData() {
 
         /* Sayt sozlamalari — yopishqoq saqlash paneli */
         .gg .site-bar {
+          position: sticky;
+          top: 0;
+          z-index: 30;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -5055,9 +5126,19 @@ export default function GrizzlyGymSoftData() {
           flex-wrap: wrap;
           padding: 14px 20px;
           border-radius: 12px;
-          border: 1px solid var(--brd, rgba(255, 215, 0, 0.2));
-          background: var(--surface-2, rgba(255, 255, 255, 0.05));
+          border: 1px solid var(--brd, rgba(255, 215, 0, 0.28));
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.5);
         }
+        .gg .is-pulse { animation: savePulse 1.8s ease-in-out infinite; }
+        @keyframes savePulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.45); }
+          50%      { box-shadow: 0 0 0 7px rgba(255, 215, 0, 0); }
+        }
+
+        .gg.dark  .site-bar { background: rgba(20, 20, 20, 0.94); }
+        .gg.light .site-bar { background: rgba(255, 253, 240, 0.95); }
 
         /* Rasm kataklari */
         .shot-grid {
@@ -6190,14 +6271,25 @@ export default function GrizzlyGymSoftData() {
               ) : (
                 <>
                   <div className="site-bar">
-                    <p className="text-sm ink-2 font-semibold flex items-center gap-2">
-                      <Lightbulb size={16} className="gold shrink-0" />
-                      {t.siteHint}
+                    <p className="text-sm font-semibold flex items-center gap-2">
+                      {siteDirty ? (
+                        <>
+                          <AlertTriangle size={16} className="text-amber-500 shrink-0" />
+                          <span className="text-amber-500">{t.unsaved}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lightbulb size={16} className="gold shrink-0" />
+                          <span className="ink-2">{t.siteHint}</span>
+                        </>
+                      )}
                     </p>
                     <button
                       onClick={saveSite}
                       disabled={siteSaving}
-                      className="gold-btn h-11 flex items-center gap-2 px-6 rounded-lg font-bold transition hover:scale-105 active:scale-95 disabled:opacity-60"
+                      className={`h-11 flex items-center gap-2 px-6 rounded-lg font-bold transition hover:scale-105 active:scale-95 disabled:opacity-60 ${
+                        siteDirty ? 'gold-btn is-pulse' : 'gold-btn'
+                      }`}
                     >
                       {siteSaving ? <span className="spinner" /> : <Check size={18} />}
                       {t.saveSite}
@@ -6707,10 +6799,9 @@ export default function GrizzlyGymSoftData() {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      if (file.size > 1024 * 1024) { toast.err(t.imageHint); return; }
-                      const reader = new FileReader();
-                      reader.onload = () => setProfileForm({ ...profileForm, photo: reader.result });
-                      reader.readAsDataURL(file);
+                      shrinkImage(file, 400, 0.85)
+                        .then((d) => setProfileForm({ ...profileForm, photo: d }))
+                        .catch(() => toast.err(t.imageError));
                     }}
                   />
                 </label>
@@ -6791,9 +6882,9 @@ export default function GrizzlyGymSoftData() {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = () => setAdminForm({ ...adminForm, photo: reader.result });
-                      reader.readAsDataURL(file);
+                      shrinkImage(file, 400, 0.85)
+                        .then((d) => setAdminForm({ ...adminForm, photo: d }))
+                        .catch(() => toast.err(t.imageError));
                     }}
                   />
                 </label>

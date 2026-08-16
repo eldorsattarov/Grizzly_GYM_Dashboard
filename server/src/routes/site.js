@@ -93,11 +93,28 @@ r.put('/', requireAuth, requireRole('owner'), (req, res) => {
     if (body[k] !== undefined) next[k] = body[k];
   }
 
-  // Rasm hajmini cheklaymiz — baza shishib ketmasin
+  // Rasm hajmini cheklaymiz — baza shishib ketmasin.
+  // Chegaradan oshsa JIMGINA tashlab yubormaymiz, aniq xato qaytaramiz:
+  // aks holda foydalanuvchi "saqlandi" deb o'ylaydi, rasm esa yo'qoladi.
+  const MAX_IMG = 1200000;   // ~900 KB rasm (base64 belgilarda)
+
   if (Array.isArray(next.gallery)) {
-    next.gallery = next.gallery.slice(0, 24).map((g) => ({
+    if (next.gallery.length > 24) {
+      return res.status(400).json({ error: "Rasmlar soni 24 tadan oshmasin" });
+    }
+
+    const tooBig = next.gallery.findIndex(
+      (g) => typeof g?.src === 'string' && g.src.length > MAX_IMG
+    );
+    if (tooBig !== -1) {
+      return res.status(413).json({
+        error: `${tooBig + 1}-rasm juda katta. Kichikroq rasm tanlang.`,
+      });
+    }
+
+    next.gallery = next.gallery.map((g) => ({
       caption: String(g?.caption || '').slice(0, 60),
-      src: typeof g?.src === 'string' && g.src.length < 700000 ? g.src : '',
+      src: typeof g?.src === 'string' ? g.src : '',
     }));
   }
 
