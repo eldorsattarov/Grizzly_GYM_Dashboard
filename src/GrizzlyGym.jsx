@@ -9,7 +9,7 @@ import {
   UserRound, MapPin, LineChart, LayoutDashboard, UserPlus,
   HeartPulse, Flame, Trophy, Bike, Droplets, Footprints, Zap,
   PanelLeftClose, PanelLeftOpen, Pencil, Send, Menu,
-  ShoppingCart, Package, Receipt, ImagePlus, FileSpreadsheet, Minus,
+  ShoppingCart, Package, Receipt, ImagePlus, FileSpreadsheet, Minus, Share,
   Banknote, CreditCard, Download,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
@@ -324,8 +324,8 @@ const translations = {
     installHint: "Telefon ekraniga ikonka qo'shiladi",
     installIos: "Safari'da: Ulashish → Bosh ekranga qo'shish",
     iosTitle: 'iPhone ga o\'rnatish',
-    iosStep1: "Pastdagi Ulashish tugmasini bosing",
-    iosStep1sub: 'Yuqoriga qaragan strelkali kvadrat belgisi',
+    iosStep1: "Ulashish tugmasini bosing",
+    iosStep1sub: "Manzil qatorining yonida — yuqorida yoki pastda",
     iosStep2: "\"Bosh ekranga qo'shish\" ni tanlang",
     iosStep2sub: "Ro'yxatni pastga aylantirsangiz chiqadi",
     iosStep3: "Qo'shish tugmasini bosing",
@@ -617,8 +617,8 @@ const translations = {
     installHint: 'На экране появится иконка',
     installIos: 'В Safari: Поделиться → На экран «Домой»',
     iosTitle: 'Установка на iPhone',
-    iosStep1: 'Нажмите кнопку «Поделиться» внизу',
-    iosStep1sub: 'Квадрат со стрелкой вверх',
+    iosStep1: 'Нажмите кнопку «Поделиться»',
+    iosStep1sub: 'Рядом с адресной строкой — сверху или снизу',
     iosStep2: 'Выберите «На экран «Домой»»',
     iosStep2sub: 'Прокрутите список вниз',
     iosStep3: 'Нажмите «Добавить»',
@@ -910,8 +910,8 @@ const translations = {
     installHint: 'An icon will appear on your screen',
     installIos: 'In Safari: Share → Add to Home Screen',
     iosTitle: 'Install on iPhone',
-    iosStep1: 'Tap the Share button at the bottom',
-    iosStep1sub: 'Square with an arrow pointing up',
+    iosStep1: 'Tap the Share button',
+    iosStep1sub: 'Next to the address bar — top or bottom',
     iosStep2: 'Choose "Add to Home Screen"',
     iosStep2sub: 'Scroll the list down to find it',
     iosStep3: 'Tap "Add"',
@@ -6979,7 +6979,7 @@ export default function GrizzlyGymSoftData() {
 
             <ol className="ios-steps">
               {[
-                { n: 1, title: t.iosStep1, sub: t.iosStep1sub, icon: Send },
+                { n: 1, title: t.iosStep1, sub: t.iosStep1sub, icon: Share },
                 { n: 2, title: t.iosStep2, sub: t.iosStep2sub, icon: Plus },
                 { n: 3, title: t.iosStep3, sub: t.iosStep3sub, icon: Check },
               ].map((st) => (
