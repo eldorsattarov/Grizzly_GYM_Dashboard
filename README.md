@@ -118,8 +118,15 @@ loyihasining README faylida.
 
 ---
 
-## Zaxira nusxa
+## Server buyruqlari
 
 ```bash
-cd server && npm run backup
+cd server
+npm run backup    # zaxira nusxa olish
+npm run reset     # ma'lumotlarni tozalash (adminlar va sayt saqlanadi)
+npm run seed      # boshlang'ich ma'lumot yozish
 ```
+
+`npm run reset` — a'zolar, to'lovlar, mahsulotlar va sotuvlarni o'chiradi.
+Tasdiqlash so'raladi va avval avtomatik zaxira nusxa olinadi.
+Adminlar, parollar, narxlar va sayt sozlamalari **saqlanadi**.

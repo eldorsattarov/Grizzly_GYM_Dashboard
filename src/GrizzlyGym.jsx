@@ -323,6 +323,15 @@ const translations = {
     installApp: "Dastur sifatida o'rnatish",
     installHint: "Telefon ekraniga ikonka qo'shiladi",
     installIos: "Safari'da: Ulashish → Bosh ekranga qo'shish",
+    iosTitle: 'iPhone ga o\'rnatish',
+    iosStep1: "Pastdagi Ulashish tugmasini bosing",
+    iosStep1sub: 'Yuqoriga qaragan strelkali kvadrat belgisi',
+    iosStep2: "\"Bosh ekranga qo'shish\" ni tanlang",
+    iosStep2sub: "Ro'yxatni pastga aylantirsangiz chiqadi",
+    iosStep3: "Qo'shish tugmasini bosing",
+    iosStep3sub: 'Ekranda ayiq ikonkasi paydo bo\'ladi',
+    iosNote: 'Faqat Safari brauzerida ishlaydi. Chrome yoki boshqa brauzerda bu imkoniyat yo\'q.',
+    gotIt: 'Tushunarli',
     saveSite: "Saytni yangilash",
     unsaved: "Saqlanmagan o'zgarishlar bor — tugmani bosing",
     siteSaved: 'Sayt yangilandi!',
@@ -380,6 +389,7 @@ const translations = {
     productAdded: "Mahsulot qo'shildi!",
     sold: 'Sotildi',
     soldToday: 'Bugun sotilgan mahsulotlar',
+    soldProducts: 'Sotilgan mahsulotlar',
     paidNow: "To'landi",
     onCredit: 'Qarzga',
     salesDebt: 'Sotuv qarzi',
@@ -606,6 +616,15 @@ const translations = {
     installApp: 'Установить как приложение',
     installHint: 'На экране появится иконка',
     installIos: 'В Safari: Поделиться → На экран «Домой»',
+    iosTitle: 'Установка на iPhone',
+    iosStep1: 'Нажмите кнопку «Поделиться» внизу',
+    iosStep1sub: 'Квадрат со стрелкой вверх',
+    iosStep2: 'Выберите «На экран «Домой»»',
+    iosStep2sub: 'Прокрутите список вниз',
+    iosStep3: 'Нажмите «Добавить»',
+    iosStep3sub: 'На экране появится иконка',
+    iosNote: 'Работает только в Safari. В Chrome и других браузерах этой возможности нет.',
+    gotIt: 'Понятно',
     saveSite: 'Обновить сайт',
     unsaved: 'Есть несохранённые изменения — нажмите кнопку',
     siteSaved: 'Сайт обновлён!',
@@ -663,6 +682,7 @@ const translations = {
     productAdded: 'Товар добавлен!',
     sold: 'Продано',
     soldToday: 'Проданные сегодня товары',
+    soldProducts: 'Проданные товары',
     paidNow: 'Оплачено',
     onCredit: 'В долг',
     salesDebt: 'Долг по продажам',
@@ -889,6 +909,15 @@ const translations = {
     installApp: 'Install as app',
     installHint: 'An icon will appear on your screen',
     installIos: 'In Safari: Share → Add to Home Screen',
+    iosTitle: 'Install on iPhone',
+    iosStep1: 'Tap the Share button at the bottom',
+    iosStep1sub: 'Square with an arrow pointing up',
+    iosStep2: 'Choose "Add to Home Screen"',
+    iosStep2sub: 'Scroll the list down to find it',
+    iosStep3: 'Tap "Add"',
+    iosStep3sub: 'The bear icon appears on your screen',
+    iosNote: 'Works only in Safari. Chrome and other browsers do not offer this.',
+    gotIt: 'Got it',
     saveSite: 'Update site',
     unsaved: 'Unsaved changes — press the button',
     siteSaved: 'Site updated!',
@@ -946,6 +975,7 @@ const translations = {
     productAdded: 'Product added!',
     sold: 'Sold',
     soldToday: 'Products sold today',
+    soldProducts: 'Products sold',
     paidNow: 'Paid',
     onCredit: 'On credit',
     salesDebt: 'Sales debt',
@@ -1490,17 +1520,21 @@ const fmtDT = (v) => {
 // SIG'ADIGAN QATORLAR SONI
 // ============================================
 function useFitRows(ref, rowH, headH, active) {
-  const [rows, setRows] = useState(6);
+  const [rows, setRows] = useState(8);
 
   useEffect(() => {
     const el = ref.current;
     if (!el || !active) return;
+
     const calc = () => {
-      // Telefonda qatorlar pastroq bo'ladi
-      const narrow = window.innerWidth < 768;
-      const h = narrow ? Math.max(48, rowH - 12) : rowH;
-      const fit = Math.floor((el.clientHeight - headH) / h);
-      setRows(Math.max(2, fit));
+      // Tor ekranda sahifa scroll qiladi va jadval balandligi
+      // o'zgaruvchan — o'lchash ma'nosiz, qat'iy son beramiz.
+      if (window.innerWidth < 1024) {
+        setRows(8);
+        return;
+      }
+      const fit = Math.floor((el.clientHeight - headH) / rowH);
+      setRows(Math.max(3, fit));
     };
     calc();
     const ro = new ResizeObserver(calc);
@@ -2098,6 +2132,21 @@ export default function GrizzlyGymSoftData() {
   };
 
   const [installPrompt, setInstallPrompt] = useState(null);
+  const [showIosHelp, setShowIosHelp] = useState(false);
+
+  // iPhone/iPad Safari beforeinstallprompt ni qo'llab-quvvatlamaydi —
+  // u yerda foydalanuvchiga qo'lda qo'shishni ko'rsatamiz.
+  const iosInfo = (() => {
+    if (typeof navigator === 'undefined') return { isIos: false, standalone: true };
+    const ua = navigator.userAgent || '';
+    const isIos = /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const standalone = window.navigator.standalone === true ||
+      window.matchMedia?.('(display-mode: standalone)')?.matches === true;
+    return { isIos, standalone };
+  })();
+
+  const canInstall = !!installPrompt || (iosInfo.isIos && !iosInfo.standalone);
   const [showProfile, setShowProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({
     name: '', login: '', photo: '', currentPassword: '', newPassword: '',
@@ -2114,6 +2163,8 @@ export default function GrizzlyGymSoftData() {
   const [productPage, setProductPage] = useState(1);
   const [salesPage, setSalesPage] = useState(1);
   const [salesSearch, setSalesSearch] = useState('');
+  const [salesPeriod, setSalesPeriod] = useState('day');
+  const [salesDate, setSalesDate] = useState(() => new Date().toISOString().slice(0, 10));
   const productsAreaRef = useRef(null);
   const salesAreaRef = useRef(null);
 
@@ -2888,6 +2939,32 @@ export default function GrizzlyGymSoftData() {
 
   const fmtDateTime = (v) => (String(v).includes('T') ? fmtDT(v) : fmtDate(v));
 
+  // Davr oralig'ini hisoblash — dashboard va sotuv bo'limi ishlatadi
+  const boundsOf = (dateStr, mode) => {
+    const base = new Date(dateStr);
+    const from = new Date(base);
+    const to = new Date(base);
+    from.setHours(0, 0, 0, 0);
+    to.setHours(23, 59, 59, 999);
+
+    if (mode === 'week') {
+      const dow = (from.getDay() + 6) % 7;
+      from.setDate(from.getDate() - dow);
+      to.setTime(from.getTime());
+      to.setDate(from.getDate() + 6);
+      to.setHours(23, 59, 59, 999);
+    } else if (mode === 'month') {
+      from.setDate(1);
+      to.setMonth(from.getMonth() + 1, 0);
+      to.setHours(23, 59, 59, 999);
+    } else if (mode === 'year') {
+      from.setMonth(0, 1);
+      to.setMonth(11, 31);
+      to.setHours(23, 59, 59, 999);
+    }
+    return { from, to };
+  };
+
   // Tanlangan davr oralig'i
   const periodRange = (() => {
     const base = new Date(periodDate);
@@ -2959,7 +3036,42 @@ export default function GrizzlyGymSoftData() {
   useEffect(() => { setProductPage(1); }, [productRows]);
 
   // ---- Sotuvlar ----
-  const filteredSales = sales.filter((x) => {
+  // ---------------------------------------------------------
+  // SOTUV BO'LIMI — tanlangan davr bo'yicha
+  // ---------------------------------------------------------
+  const salesRange = boundsOf(salesDate, salesPeriod);
+
+  const inSalesRange = (v) => {
+    const d = new Date(v);
+    if (isNaN(d)) return false;
+    // Sotuv sanasi faqat kun aniqligida saqlanadi
+    d.setHours(12, 0, 0, 0);
+    return d >= salesRange.from && d <= salesRange.to;
+  };
+
+  const periodSales = sales.filter((x) => inSalesRange(x.date));
+
+  const salesPeriodLabel = salesPeriod === 'day'
+    ? fmtDate(salesRange.from)
+    : `${fmtDate(salesRange.from)} — ${fmtDate(salesRange.to)}`;
+
+  const todaySales = periodSales;
+  const todayIncome = periodSales.reduce((sum, x) => sum + salePaid(x), 0);
+  const salesDebtTotal = periodSales.reduce((sum, x) => sum + saleDebt(x), 0);
+
+  // Davrda sotilgan mahsulotlar — mahsulot bo'yicha jamlanadi
+  const todayByProduct = Object.values(
+    periodSales.reduce((acc, x) => {
+      (x.items || []).forEach((it) => {
+        if (!acc[it.productName]) acc[it.productName] = { name: it.productName, qty: 0, total: 0 };
+        acc[it.productName].qty += it.qty;
+        acc[it.productName].total += it.total;
+      });
+      return acc;
+    }, {})
+  ).sort((a, b) => b.qty - a.qty);
+
+  const filteredSales = periodSales.filter((x) => {
     const q = salesSearch.trim().toLowerCase();
     if (!q) return true;
     return (
@@ -2971,7 +3083,7 @@ export default function GrizzlyGymSoftData() {
   const salesTotalPages = Math.max(1, Math.ceil(filteredSales.length / salesRows));
   const salesSafePage = Math.min(salesPage, salesTotalPages);
   const pagedSales = filteredSales.slice((salesSafePage - 1) * salesRows, salesSafePage * salesRows);
-  useEffect(() => { setSalesPage(1); }, [salesSearch, salesRows]);
+  useEffect(() => { setSalesPage(1); }, [salesSearch, salesRows, salesPeriod, salesDate]);
 
   // ---- Qarzdorlar ----
   const unpaidSalesOf = (row) => {
@@ -3027,12 +3139,6 @@ export default function GrizzlyGymSoftData() {
   const totalDebt = members.reduce((sum, m) => sum + debtOf(m), 0);
   const monthSales = sales.filter((x) => x.date.startsWith(currentMonth));
   const salesIncome = monthSales.reduce((sum, x) => sum + salePaid(x), 0);
-  const todaySales = sales.filter((x) => x.date === todayStr);
-  const todayIncome = todaySales.reduce((sum, x) => sum + salePaid(x), 0);
-  const salesDebtTotal = sales.reduce((sum, x) => sum + saleDebt(x), 0);
-
-  // Bugun sotilgan mahsulotlar — serverdan
-  const todayByProduct = soldToday;
 
 
   const stats = {
@@ -3641,6 +3747,77 @@ export default function GrizzlyGymSoftData() {
         from { opacity: 0; transform: translateY(20px) scale(0.97); }
         to   { opacity: 1; transform: none; }
       }
+    }
+
+    /* ---- iPhone ga o'rnatish oynasi ---- */
+    .ios-box {
+      position: relative;
+      z-index: 2;
+      width: min(400px, 100%);
+      padding: 28px 24px 24px;
+      border-radius: 18px;
+      border: 1px solid var(--brd, rgba(255, 215, 0, 0.18));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.6);
+      animation: confirmIn 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+      max-height: 88vh;
+      overflow-y: auto;
+    }
+    .gg.dark  .ios-box { background: #141414; }
+    .gg.light .ios-box { background: #ffffff; }
+
+    .ios-steps {
+      list-style: none;
+      margin: 22px 0 0;
+      padding: 0;
+      width: 100%;
+      display: grid;
+      gap: 10px;
+    }
+    .ios-steps li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 13px 14px;
+      border-radius: 12px;
+      background: var(--surface-2, rgba(255, 255, 255, 0.05));
+      border: 1px solid var(--brd, rgba(255, 215, 0, 0.14));
+    }
+    .ios-steps__n {
+      width: 26px; height: 26px;
+      border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #FFD700, #F0B800);
+      color: #17130a;
+      font-size: 12.5px;
+      font-weight: 800;
+    }
+    .ios-steps b {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink-1, #f5f5f5);
+      line-height: 1.35;
+    }
+    .ios-steps small {
+      display: block;
+      margin-top: 3px;
+      font-size: 12.5px;
+      color: var(--ink-3, #8a8a8a);
+      line-height: 1.45;
+    }
+
+    .ios-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 16px 0 0;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--ink-3, #8a8a8a);
     }
 
     /* ---- Rasmni katta ko'rish ---- */
@@ -5374,6 +5551,29 @@ export default function GrizzlyGymSoftData() {
           font-weight: 500;
         }
 
+        /* ---------------------------------------------------------
+           Keng ekranda jadvallar mavjud balandlikka moslashadi.
+           Tor ekranda esa kontent ustma-ust joylashadi va sig'maydi —
+           shuning uchun balandlik cheklovlarini bekor qilamiz.
+           --------------------------------------------------------- */
+        @media (max-width: 1023px) {
+          .gg .tab-fit {
+            height: auto !important;
+            min-height: 0 !important;
+          }
+          /* Ichkaridagi "qolgan joyni egalla" qoidalarini yumshatamiz */
+          .gg .tab-fit .flex-1 {
+            flex: 0 1 auto !important;
+          }
+          /* Jadval maydonlari o'z balandligini olsin */
+          .gg .tab-fit [class*="min-h-0"] {
+            min-height: 0 !important;
+          }
+          .gg .tab-fit .overflow-y-hidden {
+            overflow-y: visible !important;
+          }
+        }
+
         /* Sahifalash */
         .pg-btn {
           width: 32px;
@@ -5591,48 +5791,57 @@ export default function GrizzlyGymSoftData() {
               <LanguageSwitcher lang={lang} setLang={setLang} darkMode={darkMode} />
               <UserMenu t={t} admin={currentAdmin} darkMode={darkMode}
                 onLogout={handleLogout} onEditProfile={openProfile}
-                onInstall={installPrompt ? runInstall : null} />
+                onInstall={canInstall ? (installPrompt ? runInstall : () => setShowIosHelp(true)) : null} />
             </div>
           </div>
         </header>
 
         {/* Davr filtri — header ostida, scroll qilmaydi */}
-        {activeTab === 'dashboard' && (
-          <div className="subbar brd border-b shrink-0">
-            <span className="text-sm font-semibold ink-3 hidden md:block">{periodLabel}</span>
+        {(activeTab === 'dashboard' || activeTab === 'sales') && (() => {
+          const isSales = activeTab === 'sales';
+          const curPeriod = isSales ? salesPeriod : period;
+          const curDate = isSales ? salesDate : periodDate;
+          const setCurPeriod = isSales ? setSalesPeriod : setPeriod;
+          const setCurDate = isSales ? setSalesDate : setPeriodDate;
+          const label = isSales ? salesPeriodLabel : periodLabel;
 
-            <div className="flex items-center gap-3 ml-auto">
-              <div className="w-[180px]">
-                <DateTimePicker
-                  value={`${periodDate}T00:00`}
-                  onChange={(v) => setPeriodDate(String(v).split('T')[0])}
-                  locale={locale}
-                  t={t}
-                  dateOnly
-                />
-              </div>
+          return (
+            <div className="subbar brd border-b shrink-0">
+              <span className="text-sm font-semibold ink-3 hidden md:block">{label}</span>
 
-              <div className="seg">
-                {[
-                  { id: 'day', label: t.day },
-                  { id: 'week', label: t.week },
-                  { id: 'month', label: t.month },
-                  { id: 'year', label: t.year },
-                ].map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setPeriod(p.id)}
-                    className={`seg-btn ${period === p.id ? 'is-active' : ''}`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
+              <div className="flex items-center gap-3 ml-auto">
+                <div className="w-[180px]">
+                  <DateTimePicker
+                    value={`${curDate}T00:00`}
+                    onChange={(v) => setCurDate(String(v).split('T')[0])}
+                    locale={locale}
+                    t={t}
+                    dateOnly
+                  />
+                </div>
+
+                <div className="seg">
+                  {[
+                    { id: 'day', label: t.day },
+                    { id: 'week', label: t.week },
+                    { id: 'month', label: t.month },
+                    { id: 'year', label: t.year },
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setCurPeriod(p.id)}
+                      className={`seg-btn ${curPeriod === p.id ? 'is-active' : ''}`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
-        <main className={`flex-1 min-h-0 overflow-x-hidden p-6 ${['members', 'sales', 'debtors', 'settings'].includes(activeTab) ? 'overflow-y-hidden' : 'overflow-y-auto'}`}>
+        <main className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto p-6">
           {/* ---------- DASHBOARD ---------- */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
@@ -5837,7 +6046,7 @@ export default function GrizzlyGymSoftData() {
 
           {/* ---------- MEMBERS ---------- */}
           {activeTab === 'members' && (
-            <div className="h-full flex flex-col gap-5 min-h-0">
+            <div className="tab-fit h-full flex flex-col gap-5 min-h-0">
               <div className="toolbar flex gap-4 flex-wrap items-center shrink-0">
                 <div className="search-box">
                   <Search size={19} className="search-ic" />
@@ -6021,13 +6230,13 @@ export default function GrizzlyGymSoftData() {
 
           {/* ---------- SALES ---------- */}
           {activeTab === 'sales' && (
-            <div className="h-full flex flex-col gap-5 min-h-0">
+            <div className="tab-fit h-full flex flex-col gap-5 min-h-0">
               {/* Kunlik ko'rsatkichlar — gorizontal */}
               <div className="stat-grid shrink-0">
                 <div className="stat-row surface rounded-xl shadow-lg">
                   <span className="stat-row-icon"><Wallet size={20} /></span>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold ink-3">{t.todayIncome}</p>
+                    <p className="text-xs font-semibold ink-3">{t.incomeBy[salesPeriod]}</p>
                     <p className="grizzly-title text-2xl font-black gold leading-tight">
                       {stats.todayIncome.toLocaleString(locale)}
                       <span className="text-xs ink-3 font-bold"> UZS</span>
@@ -6068,9 +6277,9 @@ export default function GrizzlyGymSoftData() {
                   <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                     <h3 className="grizzly-title text-base font-black flex items-center gap-2 ink-1">
                       <Package size={18} className="gold" />
-                      {t.soldToday}
+                      {t.soldProducts}
                     </h3>
-                    <span className="text-xs font-semibold ink-3">{fmtDate(new Date())}</span>
+                    <span className="text-xs font-semibold ink-3">{salesPeriodLabel}</span>
                   </div>
 
                   <div className="flex flex-wrap gap-2.5">
@@ -6538,7 +6747,7 @@ export default function GrizzlyGymSoftData() {
 
           {/* ---------- DEBTORS ---------- */}
           {activeTab === 'debtors' && (
-            <div className="h-full flex flex-col gap-5 min-h-0">
+            <div className="tab-fit h-full flex flex-col gap-5 min-h-0">
               {/* Qidiruv */}
               <div className="shrink-0">
                 <div className="search-box max-w-md">
@@ -6652,7 +6861,7 @@ export default function GrizzlyGymSoftData() {
 
           {/* ---------- SETTINGS ---------- */}
           {activeTab === 'settings' && isOwner && (
-            <div className="h-full flex flex-col gap-5 min-h-0">
+            <div className="tab-fit h-full flex flex-col gap-5 min-h-0">
               {/* Narxlar */}
               <div className="surface rounded-xl p-6 shadow-lg shrink-0">
                 <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
@@ -6755,6 +6964,50 @@ export default function GrizzlyGymSoftData() {
 
         </main>
       </div>
+
+
+      {/* ---------- iPHONE GA O'RNATISH ---------- */}
+      {showIosHelp && (
+        <div className={`grizzly-app gg ${darkMode ? 'dark' : 'light'} confirm-root`}>
+          <div className="drawer-backdrop" onClick={() => setShowIosHelp(false)} />
+          <div className="ios-box" role="dialog" aria-modal="true">
+            <span className="confirm-icon" style={{ background: 'rgba(255,215,0,0.12)', color: '#FFD700' }}>
+              <Download size={26} />
+            </span>
+
+            <h3 className="grizzly-title text-xl font-black ink-1 mt-4 text-center">{t.iosTitle}</h3>
+
+            <ol className="ios-steps">
+              {[
+                { n: 1, title: t.iosStep1, sub: t.iosStep1sub, icon: Send },
+                { n: 2, title: t.iosStep2, sub: t.iosStep2sub, icon: Plus },
+                { n: 3, title: t.iosStep3, sub: t.iosStep3sub, icon: Check },
+              ].map((st) => (
+                <li key={st.n}>
+                  <span className="ios-steps__n">{st.n}</span>
+                  <span className="min-w-0 flex-1">
+                    <b>{st.title}</b>
+                    <small>{st.sub}</small>
+                  </span>
+                  <st.icon size={17} className="gold shrink-0 mt-1" />
+                </li>
+              ))}
+            </ol>
+
+            <p className="ios-note">
+              <Lightbulb size={14} className="gold shrink-0" />
+              {t.iosNote}
+            </p>
+
+            <button
+              onClick={() => setShowIosHelp(false)}
+              className="gold-btn w-full h-12 rounded-xl font-bold mt-5"
+            >
+              {t.gotIt}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ---------- XABARLAR ---------- */}
       <Toasts items={toasts} onClose={dropToast} darkMode={darkMode} />
