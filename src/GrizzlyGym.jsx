@@ -6113,59 +6113,63 @@ export default function GrizzlyGymSoftData() {
           {/* ---------- MEMBERS ---------- */}
           {activeTab === 'members' && (
             <div className="tab-fit h-full flex flex-col gap-5 min-h-0">
-              <div className="toolbar flex gap-4 flex-wrap items-center shrink-0">
-                <div className="search-box">
-                  <Search size={19} className="search-ic" />
-                  <input
-                    type="text"
-                    placeholder={t.searchPlaceholder}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+              {/* "Muddati o'tganlar" ko'rinishida asboblar paneli yashiriladi —
+                  faqat sodda ro'yxat ko'rsatiladi, so'ralganidek */}
+              {!isExpiredView && (
+                <div className="toolbar flex gap-4 flex-wrap items-center shrink-0">
+                  <div className="search-box">
+                    <Search size={19} className="search-ic" />
+                    <input
+                      type="text"
+                      placeholder={t.searchPlaceholder}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {searchQuery && (
+                      <button type="button" onClick={() => setSearchQuery('')} className="sel-search-x">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  <Select
+                    className="w-44"
+                    value={filterType}
+                    onChange={setFilterType}
+                    options={[
+                      { value: 'all', label: t.all },
+                      { value: 'daily', label: t.daily },
+                      { value: 'alternate', label: t.alternate },
+                      { value: 'active', label: t.statusActive },
+                      { value: 'partial', label: t.statusPartial },
+                      { value: 'overdue', label: t.statusOverdue },
+                    ]}
                   />
-                  {searchQuery && (
-                    <button type="button" onClick={() => setSearchQuery('')} className="sel-search-x">
-                      <X size={14} />
-                    </button>
-                  )}
+
+                  <button
+                    onClick={exportMembersToExcel}
+                    title={t.exportExcel}
+                    className="h-11 px-4 rounded-lg border-2 font-semibold transition surface brd ink-2 surface-hover flex items-center gap-2"
+                  >
+                    <FileSpreadsheet size={20} className="gold" />
+                    <span className="hidden lg:inline">Excel</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setPayForm({ memberId: '', amount: '', at: nowLocal(), method: 'cash' }); setShowAddPayment(true); }}
+                    className="btn-muted h-11 ml-auto flex items-center gap-2 px-5 rounded-lg font-bold transition"
+                  >
+                    <Wallet size={20} />{t.addPayment}
+                  </button>
+
+                  <button
+                    onClick={openNewMember}
+                    className="gold-btn h-11 flex items-center gap-2 px-6 rounded-lg font-bold transition hover:scale-105 active:scale-95"
+                  >
+                    <Plus size={20} />{t.addMember}
+                  </button>
                 </div>
-
-                <Select
-                  className="w-44"
-                  value={filterType}
-                  onChange={setFilterType}
-                  options={[
-                    { value: 'all', label: t.all },
-                    { value: 'daily', label: t.daily },
-                    { value: 'alternate', label: t.alternate },
-                    { value: 'active', label: t.statusActive },
-                    { value: 'partial', label: t.statusPartial },
-                    { value: 'overdue', label: t.statusOverdue },
-                  ]}
-                />
-
-                <button
-                  onClick={exportMembersToExcel}
-                  title={t.exportExcel}
-                  className="h-11 px-4 rounded-lg border-2 font-semibold transition surface brd ink-2 surface-hover flex items-center gap-2"
-                >
-                  <FileSpreadsheet size={20} className="gold" />
-                  <span className="hidden lg:inline">Excel</span>
-                </button>
-
-                <button
-                  onClick={() => { setPayForm({ memberId: '', amount: '', at: nowLocal(), method: 'cash' }); setShowAddPayment(true); }}
-                  className="btn-muted h-11 ml-auto flex items-center gap-2 px-5 rounded-lg font-bold transition"
-                >
-                  <Wallet size={20} />{t.addPayment}
-                </button>
-
-                <button
-                  onClick={openNewMember}
-                  className="gold-btn h-11 flex items-center gap-2 px-6 rounded-lg font-bold transition hover:scale-105 active:scale-95"
-                >
-                  <Plus size={20} />{t.addMember}
-                </button>
-              </div>
+              )}
 
               <div className="surface rounded-xl shadow-lg overflow-hidden flex-1 min-h-0 flex flex-col">
                 <div ref={tableAreaRef} className="flex-1 min-h-0 overflow-auto">
