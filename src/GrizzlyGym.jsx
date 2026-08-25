@@ -4602,6 +4602,9 @@ export default function GrizzlyGymSoftData() {
       icon: Users,
       badge: members.length,
       isActive: activeTab === 'members' && filterType !== 'overdue',
+      // "Muddati o'tganlar" dan qaytganda filtr ham "hammasi" ga tushishi kerak,
+      // aks holda activeTab allaqachon 'members' bo'lgani uchun hech narsa o'zgarmaydi
+      onClick: () => { setFilterType('all'); setActiveTab('members'); },
     },
     { id: 'sales', label: t.navSales, icon: ShoppingCart },
     { id: 'debtors', label: t.navDebtors, icon: AlertTriangle, badge: debtorList.length || null },
