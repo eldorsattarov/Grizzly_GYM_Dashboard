@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import {
   X, LogOut, Plus, Trash2, Edit2, Search,
-  Users, BarChart3, Settings, CheckCircle, AlertTriangle,
+  Users, BarChart3, Settings, CheckCircle, AlertTriangle, AlertOctagon,
   Home, Monitor, Sun, Moon, Check, ChevronDown, ChevronUp, Globe,
   DollarSign, Weight, Lock, ShieldCheck, Timer, LogIn, Lightbulb,
   TrendingUp, XCircle, CalendarDays, CalendarClock, Wallet,
@@ -257,6 +257,8 @@ const translations = {
     navRecords: 'Kirishlar',
     navSales: 'Sotuv',
     navDebtors: 'Qarzdorlar',
+    navExpired: "Muddati o'tganlar",
+    pageExpired: "Muddati o'tganlar",
     pageDebtors: 'Qarzdorlar',
     membershipDebt: "Oylik to'lovdan",
     saleDebtCol: 'Sotuvdan',
@@ -457,6 +459,8 @@ const translations = {
     totalDue: "Jami hisoblangan",
     validUntil: 'Amal qiladi',
     months: 'oy',
+    days: 'kun',
+    memberSince: "A'zolikda",
     monthsDue: 'Hisoblangan oylar',
     debtMonths: 'oylik qarz',
     startDate: "A'zolik boshlangan",
@@ -550,6 +554,8 @@ const translations = {
     navRecords: 'Посещения',
     navSales: 'Продажи',
     navDebtors: 'Должники',
+    navExpired: 'Просроченные',
+    pageExpired: 'Просроченные',
     pageDebtors: 'Должники',
     membershipDebt: 'По абонементу',
     saleDebtCol: 'По продажам',
@@ -750,6 +756,8 @@ const translations = {
     totalDue: 'Всего начислено',
     validUntil: 'Действует до',
     months: 'мес',
+    days: 'дн',
+    memberSince: 'В зале',
     monthsDue: 'Начислено месяцев',
     debtMonths: 'мес долга',
     startDate: 'Начало членства',
@@ -843,6 +851,8 @@ const translations = {
     navRecords: 'Check-ins',
     navSales: 'Sales',
     navDebtors: 'Debtors',
+    navExpired: 'Expired',
+    pageExpired: 'Expired',
     pageDebtors: 'Debtors',
     membershipDebt: 'Membership',
     saleDebtCol: 'Sales',
@@ -1043,6 +1053,8 @@ const translations = {
     totalDue: 'Total charged',
     validUntil: 'Valid until',
     months: 'mo',
+    days: 'd',
+    memberSince: 'Member for',
     monthsDue: 'Months charged',
     debtMonths: 'mo behind',
     startDate: 'Membership start',
@@ -1520,27 +1532,49 @@ const fmtDT = (v) => {
 // SIG'ADIGAN QATORLAR SONI
 // ============================================
 function useFitRows(ref, rowH, headH, active) {
-  const [rows, setRows] = useState(8);
+  const [rows, setRows] = useState(6);
 
   useEffect(() => {
     const el = ref.current;
     if (!el || !active) return;
 
     const calc = () => {
-      // Tor ekranda sahifa scroll qiladi va jadval balandligi
-      // o'zgaruvchan — o'lchash ma'nosiz, qat'iy son beramiz.
-      if (window.innerWidth < 1024) {
-        setRows(8);
-        return;
-      }
-      const fit = Math.floor((el.clientHeight - headH) / rowH);
-      setRows(Math.max(3, fit));
+      // HAQIQIY balandlikni o'lchaymiz — taxmin emas.
+      // Shrift, til, mavzu va ekran o'lchami o'zgarsa ham to'g'ri ishlaydi.
+      // Konteyner har doim o'zining flex balandligiga ega (h-full),
+      // shuning uchun mobil va desktop uchun bir xil hisoblash yetarli —
+      // agar joy kam bo'lsa jadval maydoni o'zi ichki scroll qiladi.
+      const head = el.querySelector('thead');
+      const row = el.querySelector('tbody tr');
+
+      const hh = head?.offsetHeight || headH;
+      const rh = row?.offsetHeight || rowH;
+      if (rh < 20) return;                     // hali chizilmagan
+
+      // Juda tor ekranda qatorlar balandroq bo'ladi (matn ikki qatorga o'ralishi mumkin)
+      const narrow = window.innerWidth < 768;
+      const effRh = narrow ? rh * 1.15 : rh;
+
+      const fit = Math.floor((el.clientHeight - hh) / effRh);
+      setRows(Math.max(3, Math.min(fit, 50)));
     };
+
     calc();
+
+    // Qatorlar chizilgandan keyin qayta o'lchaymiz
+    const raf = requestAnimationFrame(calc);
+    const timer = setTimeout(calc, 120);
+
     const ro = new ResizeObserver(calc);
     ro.observe(el);
     window.addEventListener('resize', calc);
-    return () => { ro.disconnect(); window.removeEventListener('resize', calc); };
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+      ro.disconnect();
+      window.removeEventListener('resize', calc);
+    };
   }, [ref, rowH, headH, active]);
 
   return rows;
@@ -2059,8 +2093,28 @@ export default function GrizzlyGymSoftData() {
 
   const paidUntil = (m) => {
     if (m.paidUntil) return new Date(m.paidUntil);
-    const covered = Math.floor(totalPaid(m) / m.amount);
+    const paidMonths = m.amount > 0 ? Math.floor(totalPaid(m) / m.amount) : 0;
+    const covered = getStatus(m) === 'overdue'
+      ? paidMonths
+      : Math.max(monthsElapsed(m), paidMonths);
     return addMonths(m.startDate, covered);
+  };
+
+  // A'zolik boshlanganidan beri o'tgan aniq muddat: "2 oy 14 kun"
+  const elapsedText = (m) => {
+    if (m.spentMonths != null) {
+      return `${m.spentMonths} ${t.months} ${m.spentDays} ${t.days}`;
+    }
+    const start = new Date(m.startDate);
+    const now = new Date();
+    if (isNaN(start) || now < start) return `0 ${t.months} 0 ${t.days}`;
+    let mo = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+    if (now.getDate() < start.getDate()) mo -= 1;
+    if (mo < 0) mo = 0;
+    const anchor = new Date(start);
+    anchor.setMonth(anchor.getMonth() + mo);
+    const d = Math.max(0, Math.floor((now - anchor) / 86400000));
+    return `${mo} ${t.months} ${d} ${t.days}`;
   };
 
   const debtMonths = (m) =>
@@ -4538,11 +4592,27 @@ export default function GrizzlyGymSoftData() {
   // ====================================
   // DASHBOARD
   // ====================================
+  const expiredCount = members.filter((m) => getStatus(m) === 'overdue').length;
+
   const navItems = [
     { id: 'dashboard', label: t.navDashboard, icon: Home },
-    { id: 'members', label: t.navMembers, icon: Users, badge: members.length },
+    {
+      id: 'members',
+      label: t.navMembers,
+      icon: Users,
+      badge: members.length,
+      isActive: activeTab === 'members' && filterType !== 'overdue',
+    },
     { id: 'sales', label: t.navSales, icon: ShoppingCart },
     { id: 'debtors', label: t.navDebtors, icon: AlertTriangle, badge: debtorList.length || null },
+    {
+      id: 'expired',
+      label: t.navExpired,
+      icon: AlertOctagon,
+      badge: expiredCount || null,
+      isActive: activeTab === 'members' && filterType === 'overdue',
+      onClick: () => { setFilterType('overdue'); setActiveTab('members'); },
+    },
     // Sozlamalar va sayt — faqat zal egasiga
     ...(isOwner
       ? [
@@ -4560,7 +4630,13 @@ export default function GrizzlyGymSoftData() {
     settings: { Icon: Settings, label: t.pageSettings },
     site: { Icon: Globe, label: t.pageSite },
   };
-  const CurrentPageIcon = pageMeta[activeTab].Icon;
+  // A'zolar sahifasi ikki nom bilan ishlaydi: filtr overdue bo'lsa
+  // "Muddati o'tganlar", aks holda "A'zolar"
+  const isExpiredView = activeTab === 'members' && filterType === 'overdue';
+  const currentPageMeta = isExpiredView
+    ? { Icon: AlertOctagon, label: t.pageExpired }
+    : pageMeta[activeTab];
+  const CurrentPageIcon = currentPageMeta.Icon;
 
   return (
     <div className={`grizzly-app gg ${darkMode ? 'dark' : 'light'} app-bg h-screen flex overflow-hidden`}>
@@ -5459,6 +5535,9 @@ export default function GrizzlyGymSoftData() {
           padding: 0 20px;
         }
 
+        /* Jadval maydoni: nozik scrollbar */
+        .gg .overflow-auto::-webkit-scrollbar { width: 4px; height: 4px; }
+
         /* Jadval qatori — qat'iy balandlik */
         .gg .tbl-row { height: 52px; }
         @media (max-width: 767px) { .gg .tbl-row { height: 48px; } }
@@ -5549,29 +5628,6 @@ export default function GrizzlyGymSoftData() {
         .sale-search input::placeholder {
           color: var(--ph, rgba(255, 255, 255, 0.32));
           font-weight: 500;
-        }
-
-        /* ---------------------------------------------------------
-           Keng ekranda jadvallar mavjud balandlikka moslashadi.
-           Tor ekranda esa kontent ustma-ust joylashadi va sig'maydi —
-           shuning uchun balandlik cheklovlarini bekor qilamiz.
-           --------------------------------------------------------- */
-        @media (max-width: 1023px) {
-          .gg .tab-fit {
-            height: auto !important;
-            min-height: 0 !important;
-          }
-          /* Ichkaridagi "qolgan joyni egalla" qoidalarini yumshatamiz */
-          .gg .tab-fit .flex-1 {
-            flex: 0 1 auto !important;
-          }
-          /* Jadval maydonlari o'z balandligini olsin */
-          .gg .tab-fit [class*="min-h-0"] {
-            min-height: 0 !important;
-          }
-          .gg .tab-fit .overflow-y-hidden {
-            overflow-y: visible !important;
-          }
         }
 
         /* Sahifalash */
@@ -5708,33 +5764,40 @@ export default function GrizzlyGymSoftData() {
         </div>
 
         <nav className="flex-1 p-3 space-y-2 overflow-y-auto overflow-x-hidden">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => { setActiveTab(item.id); setMobileNav(false); }}
-              className={`w-full h-12 flex items-center rounded-lg font-semibold transition overflow-hidden ${
-                sidebarOpen ? 'gap-3 px-4' : 'justify-center px-0'
-              } ${activeTab === item.id ? 'nav-active' : 'ink-2 nav-hover'}`}
-              title={!sidebarOpen ? item.label : undefined}
-            >
-              <span className="relative shrink-0 flex items-center">
-                <item.icon size={20} />
-                {!sidebarOpen && item.badge != null && (
-                  <span className={`nav-dot ${activeTab === item.id ? 'is-active' : ''}`} />
-                )}
-              </span>
-              {sidebarOpen && (
-                <>
-                  <span className="flex-1 text-left truncate">{item.label}</span>
-                  {item.badge != null && (
-                    <span className={`nav-badge ${activeTab === item.id ? 'is-active' : ''}`}>
-                      {item.badge}
-                    </span>
+          {navItems.map((item) => {
+            const isActive = item.isActive ?? (activeTab === item.id);
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  if (item.onClick) item.onClick();
+                  else setActiveTab(item.id);
+                  setMobileNav(false);
+                }}
+                className={`w-full h-12 flex items-center rounded-lg font-semibold transition overflow-hidden ${
+                  sidebarOpen ? 'gap-3 px-4' : 'justify-center px-0'
+                } ${isActive ? 'nav-active' : 'ink-2 nav-hover'}`}
+                title={!sidebarOpen ? item.label : undefined}
+              >
+                <span className="relative shrink-0 flex items-center">
+                  <item.icon size={20} />
+                  {!sidebarOpen && item.badge != null && (
+                    <span className={`nav-dot ${isActive ? 'is-active' : ''}`} />
                   )}
-                </>
-              )}
-            </button>
-          ))}
+                </span>
+                {sidebarOpen && (
+                  <>
+                    <span className="flex-1 text-left truncate">{item.label}</span>
+                    {item.badge != null && (
+                      <span className={`nav-badge ${isActive ? 'is-active' : ''}`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="p-3 border-t brd space-y-2 overflow-x-hidden">
@@ -5779,7 +5842,7 @@ export default function GrizzlyGymSoftData() {
             <div className="min-w-0 flex-1 page-head">
               <h2 className="grizzly-title text-3xl font-black flex items-center gap-3 gold-fixed leading-none min-w-0">
                 <CurrentPageIcon size={30} strokeWidth={2.5} className="shrink-0" />
-                <span className="truncate">{pageMeta[activeTab].label}</span>
+                <span className="truncate">{currentPageMeta.label}</span>
               </h2>
               <p className="page-date text-sm mt-1 ink-3 truncate">
                 {t.today}: {fmtDate(new Date())}
@@ -5841,7 +5904,7 @@ export default function GrizzlyGymSoftData() {
           );
         })()}
 
-        <main className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto p-6">
+        <main className={`flex-1 min-h-0 overflow-x-hidden p-6 ${['members', 'sales', 'debtors', 'settings'].includes(activeTab) ? 'overflow-y-hidden' : 'overflow-y-auto'}`}>
           {/* ---------- DASHBOARD ---------- */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
@@ -6102,7 +6165,7 @@ export default function GrizzlyGymSoftData() {
               </div>
 
               <div className="surface rounded-xl shadow-lg overflow-hidden flex-1 min-h-0 flex flex-col">
-                <div ref={tableAreaRef} className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
+                <div ref={tableAreaRef} className="flex-1 min-h-0 overflow-auto">
                   <table className="w-full tbl-members">
                     <thead>
                       <tr className="gold-btn font-bold">
@@ -6320,7 +6383,7 @@ export default function GrizzlyGymSoftData() {
                     </h3>
                   </div>
 
-                  <div ref={productsAreaRef} className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
+                  <div ref={productsAreaRef} className="flex-1 min-h-0 overflow-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="gold-btn font-bold">
@@ -6386,7 +6449,7 @@ export default function GrizzlyGymSoftData() {
                     </div>
                   </div>
 
-                  <div ref={salesAreaRef} className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
+                  <div ref={salesAreaRef} className="flex-1 min-h-0 overflow-auto">
                     {filteredSales.length === 0 ? (
                       <div className="p-10 text-center ink-3 font-semibold">{t.noSales}</div>
                     ) : (
@@ -6767,7 +6830,7 @@ export default function GrizzlyGymSoftData() {
               </div>
 
               <div className="surface rounded-xl shadow-lg overflow-hidden flex-1 min-h-0 flex flex-col">
-                <div ref={debtorsAreaRef} className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
+                <div ref={debtorsAreaRef} className="flex-1 min-h-0 overflow-auto">
                   {filteredDebtors.length === 0 ? (
                     <div className="p-12 text-center">
                       <CheckCircle size={40} className="text-green-500 mx-auto mb-3" />
@@ -7459,6 +7522,11 @@ export default function GrizzlyGymSoftData() {
                             <span className="font-semibold ink-2">
                               {fmtDate(sel.startDate)}
                             </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="ink-3">{t.memberSince}</span>
+                            <span className="font-semibold ink-2">{elapsedText(sel)}</span>
                           </div>
 
                           <div className="flex items-center justify-between text-sm">

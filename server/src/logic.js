@@ -38,6 +38,25 @@ const paymentsStmt = db.prepare(
 );
 
 // A'zoni to'liq hisob-kitobi bilan qaytarish
+// A'zolik boshlanganidan beri o'tgan aniq muddat.
+// Masalan 01-07-2026 dan 15-09-2026 gacha → { months: 2, days: 14 }
+export function elapsedParts(startStr) {
+  const start = new Date(startStr);
+  const now = new Date();
+  if (isNaN(start) || now < start) return { months: 0, days: 0 };
+
+  let months = (now.getFullYear() - start.getFullYear()) * 12 +
+               (now.getMonth() - start.getMonth());
+  if (now.getDate() < start.getDate()) months -= 1;
+  if (months < 0) months = 0;
+
+  const anchor = new Date(start);
+  anchor.setMonth(anchor.getMonth() + months);
+  const days = Math.max(0, Math.floor((now - anchor) / 86400000));
+
+  return { months, days };
+}
+
 export function enrichMember(m, withPayments = false) {
   const totalPaid = totalPaidStmt.get(m.id).s;
   const months = monthsElapsed(m.start_date);
@@ -50,7 +69,25 @@ export function enrichMember(m, withPayments = false) {
   else if (debt > m.amount) status = 'overdue';
   else status = 'partial';
 
-  const covered = m.amount > 0 ? Math.floor(totalPaid / m.amount) : 0;
+  // ---------------------------------------------------------------
+  // AMAL QILISH MUDDATI
+  //
+  // A'zo joriy oy uchun to'lagan bo'lsa ham, qisman to'lagan bo'lsa ham
+  // zaldan foydalanadi — shuning uchun muddat hisoblangan oylar bo'yicha
+  // yuritiladi. Oldindan ko'proq to'lagan bo'lsa muddat uzayadi.
+  //
+  //   qisman to'lagan  → joriy oy oxirigacha
+  //   to'liq to'lagan  → joriy oy oxirigacha
+  //   oldindan to'lagan → to'langan oylar oxirigacha
+  // ---------------------------------------------------------------
+  const paidMonths = m.amount > 0 ? Math.floor(totalPaid / m.amount) : 0;
+
+  // Muddati o'tganlarda haqiqiy holat ko'rsatiladi — to'langan oylar bo'yicha.
+  // Qolganlarda joriy oy oxirigacha (yoki oldindan to'langan oylargacha).
+  const covered = status === 'overdue' ? paidMonths : Math.max(months, paidMonths);
+
+  // Boshlanganidan beri o'tgan aniq muddat: oy va kun
+  const spent = elapsedParts(m.start_date);
 
   return {
     id: m.id,
@@ -67,6 +104,8 @@ export function enrichMember(m, withPayments = false) {
     debt,
     debtMonths: m.amount > 0 ? Math.ceil(debt / m.amount) : 0,
     paidUntil: addMonths(m.start_date, covered).toISOString().slice(0, 10),
+    spentMonths: spent.months,
+    spentDays: spent.days,
     status,
     ...(withPayments ? { payments: paymentsStmt.all(m.id) } : {}),
   };
