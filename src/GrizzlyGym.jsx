@@ -258,6 +258,9 @@ const translations = {
     navSales: 'Sotuv',
     navDebtors: 'Qarzdorlar',
     navExpired: "Muddati o'tganlar",
+    noExpired: "Muddati o'tgan a'zo yo'q",
+    noExpiredHint: "Hamma a'zolarning muddati joyida",
+    noMembers: "A'zolar topilmadi",
     pageExpired: "Muddati o'tganlar",
     pageDebtors: 'Qarzdorlar',
     membershipDebt: "Oylik to'lovdan",
@@ -555,6 +558,9 @@ const translations = {
     navSales: 'Продажи',
     navDebtors: 'Должники',
     navExpired: 'Просроченные',
+    noExpired: 'Просроченных нет',
+    noExpiredHint: 'У всех участников срок в порядке',
+    noMembers: 'Участники не найдены',
     pageExpired: 'Просроченные',
     pageDebtors: 'Должники',
     membershipDebt: 'По абонементу',
@@ -852,6 +858,9 @@ const translations = {
     navSales: 'Sales',
     navDebtors: 'Debtors',
     navExpired: 'Expired',
+    noExpired: 'No expired members',
+    noExpiredHint: 'Everyone is up to date',
+    noMembers: 'No members found',
     pageExpired: 'Expired',
     pageDebtors: 'Debtors',
     membershipDebt: 'Membership',
@@ -4604,7 +4613,7 @@ export default function GrizzlyGymSoftData() {
       isActive: activeTab === 'members' && filterType !== 'overdue',
       // "Muddati o'tganlar" dan qaytganda filtr ham "hammasi" ga tushishi kerak,
       // aks holda activeTab allaqachon 'members' bo'lgani uchun hech narsa o'zgarmaydi
-      onClick: () => { setFilterType('all'); setActiveTab('members'); },
+      onClick: () => { setFilterType('all'); setSearchQuery(''); setActiveTab('members'); },
     },
     { id: 'sales', label: t.navSales, icon: ShoppingCart },
     { id: 'debtors', label: t.navDebtors, icon: AlertTriangle, badge: debtorList.length || null },
@@ -4614,7 +4623,9 @@ export default function GrizzlyGymSoftData() {
       icon: AlertOctagon,
       badge: expiredCount || null,
       isActive: activeTab === 'members' && filterType === 'overdue',
-      onClick: () => { setFilterType('overdue'); setActiveTab('members'); },
+      // Qidiruvni ham tozalaymiz — aks holda oldingi qidiruv matni
+      // muddati o'tganlar ro'yxatini yashirin ravishda cheklab qo'yadi
+      onClick: () => { setFilterType('overdue'); setSearchQuery(''); setActiveTab('members'); },
     },
     // Sozlamalar va sayt — faqat zal egasiga
     ...(isOwner
@@ -4673,6 +4684,13 @@ export default function GrizzlyGymSoftData() {
         }
 
         /* Nozik tekstura — yassi kulranglikni yo'qotadi */
+        /* iOS Safari'da 100vh brauzer panelini hisobga olmaydi —
+           dinamik balandlik (dvh) to'g'ri ishlaydi, eski brauzerlarda
+           oldingi qiymat kuchida qoladi. */
+        @supports (height: 100dvh) {
+          .gg.h-screen { height: 100dvh; }
+        }
+
         .gg.light .app-bg, .gg.light.app-bg {
           background-color: #fffef6;
           background-image:
@@ -4708,11 +4726,31 @@ export default function GrizzlyGymSoftData() {
           box-shadow: none;
         }
 
+        /* ---------------------------------------------------------
+           XAVFSIZ ZONA (iPhone notch / status bar)
+           index.html da viewport-fit=cover va black-translucent
+           status bar yoqilgan — bu kontentni soat va batareya ostiga
+           kiritib yuboradi. Shuning uchun tepadan qo'shimcha joy
+           ajratamiz. Oddiy brauzerda env() noldan iborat bo'ladi,
+           ya'ni desktopda hech narsa o'zgarmaydi.
+           --------------------------------------------------------- */
+
         /* Header va sidebar sarlavhasi — barcha bo'limlarda bir xil balandlik */
         .gg .topbar,
         .gg .sidebar-head {
-          height: 92px;
+          height: calc(92px + env(safe-area-inset-top, 0px));
+          padding-top: env(safe-area-inset-top, 0px);
           flex-shrink: 0;
+        }
+
+        /* Yon chekkalar — gorizontal holatda notch yonidan o'tsin */
+        .gg .topbar   { padding-right: env(safe-area-inset-right, 0px); }
+        .gg .sidebar  { padding-left: env(safe-area-inset-left, 0px); }
+
+        /* Pastki chekka — iPhone'dagi "home" chizig'i tugmalarni to'smasin */
+        .gg .sidebar-foot,
+        .gg .table-foot {
+          padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
         }
         .gg .topbar {
           position: relative;
@@ -5217,7 +5255,9 @@ export default function GrizzlyGymSoftData() {
           /* Yig'ish tugmasi mobil menyuda keraksiz */
           .gg .sidebar .collapse-btn { display: none; }
 
-          .gg .topbar, .gg .sidebar-head { height: 76px; }
+          .gg .topbar, .gg .sidebar-head {
+            height: calc(76px + env(safe-area-inset-top, 0px));
+          }
           .gg .topbar h2 { font-size: 22px; gap: 10px; }
           .gg .topbar h2 svg { width: 22px; height: 22px; }
           .gg .page-date { display: none; }
@@ -5803,7 +5843,7 @@ export default function GrizzlyGymSoftData() {
           })}
         </nav>
 
-        <div className="p-3 border-t brd space-y-2 overflow-x-hidden">
+        <div className="sidebar-foot p-3 border-t brd space-y-2 overflow-x-hidden">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className={`collapse-btn w-full h-12 flex items-center rounded-lg font-semibold transition overflow-hidden ink-2 nav-hover ${
@@ -6186,6 +6226,28 @@ export default function GrizzlyGymSoftData() {
                       </tr>
                     </thead>
                     <tbody className={`divide-y divide-line`}>
+                      {/* Bo'sh holat — foydalanuvchi "ishlamayaptimi?" deb o'ylamasligi uchun */}
+                      {pagedMembers.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-16 text-center">
+                            <div className="flex flex-col items-center gap-3">
+                              {isExpiredView ? (
+                                <>
+                                  <CheckCircle size={40} className="text-green-500 opacity-60" />
+                                  <p className="font-bold ink-2">{t.noExpired}</p>
+                                  <p className="text-sm ink-3">{t.noExpiredHint}</p>
+                                </>
+                              ) : (
+                                <>
+                                  <Users size={40} className="ink-3 opacity-40" />
+                                  <p className="font-bold ink-2">{t.noMembers}</p>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+
                       {pagedMembers.map((m) => (
                         <tr key={m.id} className={`member-row row-hover ${freshId === m.id ? 'is-fresh' : ''}`}>
                           <td className={`px-6 py-4 font-bold ink-1`}>
@@ -6269,18 +6331,29 @@ export default function GrizzlyGymSoftData() {
                     t={t}
                   />
                   <div className="flex items-center gap-5 text-sm font-semibold flex-wrap">
-                    <span className="ink-2 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-green-500" />
-                      {t.statusActive}: {filteredMembers.filter((m) => getStatus(m) === 'active').length}
-                    </span>
-                    <span className="ink-2 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" />
-                      {t.statusPartial}: {filteredMembers.filter((m) => getStatus(m) === 'partial').length}
-                    </span>
-                    <span className="ink-2 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-red-500" />
-                      {t.statusOverdue}: {filteredMembers.filter((m) => getStatus(m) === 'overdue').length}
-                    </span>
+                    {/* "Muddati o'tganlar" da uchala holat sanog'i ma'nosiz —
+                        hammasi bir xil. O'rniga faqat umumiy son ko'rsatiladi. */}
+                    {isExpiredView ? (
+                      <span className="ink-2 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                        {t.statusOverdue}: {filteredMembers.length}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="ink-2 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500" />
+                          {t.statusActive}: {filteredMembers.filter((m) => getStatus(m) === 'active').length}
+                        </span>
+                        <span className="ink-2 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          {t.statusPartial}: {filteredMembers.filter((m) => getStatus(m) === 'partial').length}
+                        </span>
+                        <span className="ink-2 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-red-500" />
+                          {t.statusOverdue}: {filteredMembers.filter((m) => getStatus(m) === 'overdue').length}
+                        </span>
+                      </>
+                    )}
 
                     <span className="foot-sep" />
 
